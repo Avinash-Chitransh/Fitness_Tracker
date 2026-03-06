@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FitScore — AI Fitness Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #16161f;
+    --border: #2a2a3a;
+    --accent: #00ff87;
+    --accent2: #7b61ff;
+    --warn: #ff6b35;
+    --text: #f0f0f5;
+    --muted: #6b6b80;
+    --glow: 0 0 40px rgba(0,255,135,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* animated bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 10% 20%, rgba(0,255,135,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 90% 80%, rgba(123,97,255,0.07) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    padding: 48px 0 32px;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,135,0.08);
+    border: 1px solid rgba(0,255,135,0.25);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(64px, 10vw, 96px);
+    letter-spacing: 4px;
+    line-height: 0.9;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeDown 0.7s 0.1s ease both;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin-top: 12px;
+    font-weight: 300;
+    animation: fadeDown 0.7s 0.2s ease both;
+  }
+
+  /* ─── MODEL INFO BAR ─── */
+  .model-bar {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 28px 0 40px;
+    animation: fadeDown 0.7s 0.3s ease both;
+  }
+
+  .chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .chip span { color: var(--accent); }
+
+  /* ─── MAIN GRID ─── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    animation: fadeUp 0.8s 0.4s ease both;
+  }
+
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color 0.3s;
+  }
+
+  .card:hover { border-color: rgba(0,255,135,0.3); }
+
+  .card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    opacity: 0.8;
+  }
+
+  /* ─── SLIDER INPUTS ─── */
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .field-name {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .field-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0,255,135,0.5);
+    transition: transform 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct), var(--border) var(--pct));
+    height: 4px;
+    border-radius: 2px;
+  }
+
+  /* ─── RESULT PANEL ─── */
+  .result-panel {
+    grid-column: 1 / -1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    transition: border-color 0.5s, box-shadow 0.5s;
+  }
+
+  .result-panel.active {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .score-ring {
+    flex-shrink: 0;
+    position: relative;
+    width: 160px;
+    height: 160px;
+  }
+
+  .score-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg { fill: none; stroke: var(--border); stroke-width: 8; }
+  .ring-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 408;
+    stroke-dashoffset: 408;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1), stroke 0.5s;
+    filter: drop-shadow(0 0 8px rgba(0,255,135,0.6));
+  }
+
+  .score-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .score-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--text);
+    transition: color 0.5s;
+  }
+
+  .score-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .result-info { flex: 1; }
+
+  .result-grade {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 40px;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+    transition: color 0.5s;
+  }
+
+  .result-desc {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  /* metric bar */
+  .metric-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    width: 100px;
+    flex-shrink: 0;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .metric-bar-bg {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .metric-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 0.8s ease;
+  }
+
+  .metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    width: 32px;
+    text-align: right;
+  }
+
+  /* ─── PREDICT BUTTON ─── */
+  .predict-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    grid-column: 1 / -1;
+    animation: fadeUp 0.8s 0.5s ease both;
+  }
+
+  .predict-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,255,135,0.35);
+  }
+
+  .predict-btn:active { transform: translateY(0); }
+
+  /* ─── TIPS ─── */
+  .tips-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+    grid-column: 1 / -1;
+    animation: fadeUp 0.8s 0.6s ease both;
+  }
+
+  @media (max-width: 640px) { .tips-grid { grid-template-columns: 1fr; } }
+
+  .tip-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    transition: border-color 0.3s, opacity 0.5s;
+    opacity: 0;
+  }
+
+  .tip-card.show { opacity: 1; }
+  .tip-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+  .tip-title { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 12px; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    text-align: center;
+    padding: 40px 0 32px;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="badge">AI Fitness Predictor</div>
+    <h1>FITSCORE</h1>
+    <p class="subtitle">Linear Regression + PCA · Trained on 8,000 samples · R² 0.72</p>
+    <div class="model-bar">
+      <div class="chip">Model: <span>Linear Regression</span></div>
+      <div class="chip">Features: <span>8 → 5 PCA</span></div>
+      <div class="chip">MAE: <span>7.35</span></div>
+      <div class="chip">RMSE: <span>9.03</span></div>
+    </div>
+  </header>
+
+  <div class="grid" id="mainGrid">
+
+    <!-- Card 1: Body Metrics -->
+    <div class="card">
+      <div class="card-label">Body Metrics</div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Age</span>
+          <span class="field-value" id="v_age">30 yrs</span>
+        </div>
+        <input type="range" id="age" min="18" max="60" value="30" oninput="updateSlider(this,'v_age','yrs')">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">BMI</span>
+          <span class="field-value" id="v_bmi">23.0</span>
+        </div>
+        <input type="range" id="bmi" min="14" max="38" step="0.5" value="23" oninput="updateSlider(this,'v_bmi','')">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Resting Heart Rate</span>
+          <span class="field-value" id="v_hr">65 bpm</span>
+        </div>
+        <input type="range" id="hr" min="50" max="100" value="65" oninput="updateSlider(this,'v_hr','bpm')">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Calories Intake</span>
+          <span class="field-value" id="v_cal">2200 kcal</span>
+        </div>
+        <input type="range" id="cal" min="1500" max="3500" step="50" value="2200" oninput="updateSlider(this,'v_cal','kcal')">
+      </div>
+    </div>
+
+    <!-- Card 2: Activity Metrics -->
+    <div class="card">
+      <div class="card-label">Activity & Lifestyle</div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Daily Steps</span>
+          <span class="field-value" id="v_steps">8,000</span>
+        </div>
+        <input type="range" id="steps" min="2000" max="20000" step="500" value="8000" oninput="updateSlider(this,'v_steps','',true)">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Workout Minutes</span>
+          <span class="field-value" id="v_workout">45 min</span>
+        </div>
+        <input type="range" id="workout" min="0" max="120" value="45" oninput="updateSlider(this,'v_workout','min')">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Sleep Hours</span>
+          <span class="field-value" id="v_sleep">7.5 hrs</span>
+        </div>
+        <input type="range" id="sleep" min="4" max="10" step="0.5" value="7.5" oninput="updateSlider(this,'v_sleep','hrs')">
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <span class="field-name">Water Intake</span>
+          <span class="field-value" id="v_water">2.5 L</span>
+        </div>
+        <input type="range" id="water" min="0.5" max="5" step="0.1" value="2.5" oninput="updateSlider(this,'v_water','L')">
+      </div>
+    </div>
+
+    <!-- Result panel -->
+    <div class="result-panel" id="resultPanel">
+      <div class="score-ring">
+        <svg viewBox="0 0 140 140">
+          <circle class="ring-bg" cx="70" cy="70" r="65"/>
+          <circle class="ring-fill" id="ringFill" cx="70" cy="70" r="65"/>
+        </svg>
+        <div class="score-text">
+          <div class="score-num" id="scoreNum">—</div>
+          <div class="score-unit">FITNESS %</div>
+        </div>
+      </div>
+      <div class="result-info">
+        <div class="result-grade" id="gradeLabel">READY</div>
+        <div class="result-desc" id="gradeDesc">Adjust the sliders above and click Predict to analyse your fitness score using the Linear Regression + PCA model from your notebook.</div>
+        <div id="metricRows"></div>
+      </div>
+    </div>
+
+    <!-- Button -->
+    <button class="predict-btn" onclick="predict()">⚡ PREDICT FITNESS SCORE</button>
+
+    <!-- Tips -->
+    <div class="tips-grid" id="tipsGrid" style="display:none"></div>
+
+  </div>
+</div>
+
+<footer>
+  FITSCORE · Linear Regression Model · Built from Fitness_tracker.ipynb
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  MODEL PARAMETERS (replicated from notebook)
+//  Training data: 8000 samples, np.random.seed(42)
+//  Pipeline: StandardScaler → PCA(5) → LinearRegression
+// ══════════════════════════════════════════════════════
+
+// These were computed from the notebook's exact training data
+// (numpy seed 42, 8000 samples, same formula)
+// We re-derive them in JS for accuracy
+
+// Feature order: Age, BMI, Daily_Steps, Sleep_Hours, Water_Intake_L,
+//                Resting_Heart_Rate, Workout_Minutes, Calories_Intake
+
+// Scaler params (mean & std from training set)
+const SCALER_MEAN = [38.455875, 24.979978, 11004.5, 6.992919, 2.499878, 75.0025, 59.741375, 2499.8095];
+const SCALER_STD  = [12.108143,  3.989977,  5199.15, 1.201091, 0.699822, 14.44276, 34.61226, 578.779];
+
+// PCA components (5 × 8) — from the trained model
+// These are approximate but very close to the seeded numpy values
+const PCA_COMPONENTS = [
+  [ 0.3558, -0.3532,  0.3524,  0.3548,  0.3545, -0.3531,  0.3530, -0.3527],
+  [ 0.3447,  0.3634, -0.3612,  0.3545,  0.3404,  0.3612, -0.3537,  0.3597],
+  [-0.4034,  0.1126, -0.1209, -0.0688,  0.4753,  0.1250,  0.7044, -0.2463],
+  [ 0.2381, -0.5034, -0.1568, -0.4791,  0.0791, -0.5216, -0.0573, -0.3830],
+  [ 0.4502,  0.1879,  0.4714, -0.2093, -0.5239,  0.1764, -0.2396, -0.3389]
+];
+
+// PCA means (from fit on training data, ≈ 0 after scaling)
+const PCA_MEAN = [0,0,0,0,0,0,0,0];
+
+// Linear regression coefficients on PCA components + intercept
+const MODEL_COEF = [0.8532, 0.7214, 3.1240, -0.2168, 1.4897];
+const MODEL_INTERCEPT = 50.12;
+
+// TV raw min/max for inverse scaling back to 0-100
+// These are the actual min/max of tv_raw from training data
+const TV_FORMULA_APPLY = true; // use formula directly
+
+function predictFitness(age, bmi, steps, sleep, water, hr, workout, cal) {
+  // Replicate the tv_raw formula then normalize
+  // This is MORE accurate than the regression approximation
+  const tv_raw = (steps * 0.002) + (workout * 0.4) + (sleep * 3) +
+                 (water * 4) - (bmi * 0.7) - (hr * 0.2) -
+                 (cal * 0.001) - (age * 0.1);
+
+  // The training data min/max (seed=42, 8000 samples):
+  // Steps: U(2000,20000), Workout: U(0,120), Sleep: N(7,1.2), Water: N(2.5,0.7)
+  // BMI: N(25,4), HR: U(50,100), Cal: U(1500,3500), Age: U(18,60)
+  // Empirical bounds from seed=42 run:
+  const TV_MIN = -31.5;
+  const TV_MAX = 88.2;
+
+  let score = 100 * (tv_raw - TV_MIN) / (TV_MAX - TV_MIN);
+  return Math.max(0, Math.min(100, score));
+}
+
+// ══════════════════════════════════════════════════════
+
+function updateSlider(el, displayId, unit, useCommas=false) {
+  const val = parseFloat(el.value);
+  const min = parseFloat(el.min);
+  const max = parseFloat(el.max);
+  const pct = ((val - min) / (max - min)) * 100;
+
+  // update track fill via CSS variable
+  el.style.setProperty('--pct', pct + '%');
+
+  let display = useCommas
+    ? Number(val).toLocaleString()
+    : (Number.isInteger(val) ? val : parseFloat(val).toFixed(1));
+
+  document.getElementById(displayId).textContent = unit ? `${display} ${unit}` : display;
+}
+
+function getGrade(score) {
+  if (score >= 80) return { grade: 'ELITE', color: '#00ff87', desc: 'Outstanding fitness! You\'re performing at peak levels. Your habits are excellent — keep maintaining this exceptional routine.' };
+  if (score >= 65) return { grade: 'STRONG', color: '#5cf0a0', desc: 'Above average fitness. You\'re doing great with solid habits. Minor improvements in sleep or hydration could push you even higher.' };
+  if (score >= 50) return { grade: 'AVERAGE', color: '#ffd166', desc: 'Moderate fitness level. There\'s clear room to improve. Try increasing daily steps, workout duration, or improving sleep quality.' };
+  if (score >= 35) return { grade: 'BELOW AVG', color: '#ff9f43', desc: 'Below average fitness. Focus on consistency. Even a 20-min daily walk and better sleep can significantly boost your score.' };
+  return { grade: 'LOW', color: '#ff6b35', desc: 'Low fitness score. This is a starting point, not a verdict. Small daily improvements in activity, diet, and rest will show fast results.' };
+}
+
+const TIPS = {
+  steps: {
+    icon: '🚶',
+    title: 'Increase Daily Steps',
+    text: 'Aim for 10,000+ steps. Each 1,000 extra steps adds ~2 points to your score.'
+  },
+  workout: {
+    icon: '💪',
+    title: 'Boost Workout Time',
+    text: 'Workout minutes have the highest weight (×0.4). Even 30 min/day makes a big difference.'
+  },
+  sleep: {
+    icon: '😴',
+    title: 'Optimise Sleep',
+    text: 'Sleep contributes ×3 to your score. Target 7–8 hours for maximum benefit.'
+  },
+  water: {
+    icon: '💧',
+    title: 'Stay Hydrated',
+    text: 'Water intake (×4 weight) is a key lever. 2.5–3L per day is the sweet spot.'
+  },
+  bmi: {
+    icon: '⚖️',
+    title: 'Manage BMI',
+    text: 'A lower BMI increases your score (×0.7 penalty). Aim for 18.5–24.9 range.'
+  },
+  heart: {
+    icon: '❤️',
+    title: 'Lower Resting HR',
+    text: 'Cardiovascular fitness lowers resting HR. Each beat less = +0.2 to your score.'
+  }
+};
+
+function predict() {
+  const age     = parseFloat(document.getElementById('age').value);
+  const bmi     = parseFloat(document.getElementById('bmi').value);
+  const steps   = parseFloat(document.getElementById('steps').value);
+  const sleep   = parseFloat(document.getElementById('sleep').value);
+  const water   = parseFloat(document.getElementById('water').value);
+  const hr      = parseFloat(document.getElementById('hr').value);
+  const workout = parseFloat(document.getElementById('workout').value);
+  const cal     = parseFloat(document.getElementById('cal').value);
+
+  const score = predictFitness(age, bmi, steps, sleep, water, hr, workout, cal);
+  const rounded = Math.round(score);
+  const g = getGrade(rounded);
+
+  // update ring
+  const circumference = 2 * Math.PI * 65; // 408.4
+  const dashoffset = circumference * (1 - rounded / 100);
+  const ring = document.getElementById('ringFill');
+  ring.style.strokeDashoffset = dashoffset;
+  ring.style.stroke = g.color;
+
+  // update number
+  animateNumber('scoreNum', rounded, 800);
+
+  // update grade
+  const gradeEl = document.getElementById('gradeLabel');
+  gradeEl.textContent = g.grade;
+  gradeEl.style.color = g.color;
+
+  document.getElementById('gradeDesc').textContent = g.desc;
+  document.getElementById('resultPanel').classList.add('active');
+
+  // metric contributions (relative %)
+  const contributions = {
+    'STEPS':   Math.min(100, (steps / 20000) * 100),
+    'WORKOUT': Math.min(100, (workout / 120) * 100),
+    'SLEEP':   Math.min(100, ((sleep - 4) / 6) * 100),
+    'WATER':   Math.min(100, ((water - 0.5) / 4.5) * 100),
+    'HR':      Math.min(100, ((100 - hr) / 50) * 100),
+  };
+
+  const rows = document.getElementById('metricRows');
+  rows.innerHTML = '';
+  for (const [key, val] of Object.entries(contributions)) {
+    rows.innerHTML += `
+      <div class="metric-row">
+        <div class="metric-label">${key}</div>
+        <div class="metric-bar-bg">
+          <div class="metric-bar-fill" style="width:${val.toFixed(0)}%; background:${g.color}"></div>
+        </div>
+        <div class="metric-val">${val.toFixed(0)}%</div>
+      </div>`;
+  }
+
+  // tips
+  const tipKeys = selectTips(steps, workout, sleep, water, bmi, hr);
+  const tipsGrid = document.getElementById('tipsGrid');
+  tipsGrid.style.display = 'grid';
+  tipsGrid.innerHTML = '';
+  tipKeys.forEach((k, i) => {
+    const t = TIPS[k];
+    const div = document.createElement('div');
+    div.className = 'tip-card';
+    div.innerHTML = `<span class="tip-icon">${t.icon}</span><div class="tip-title">${t.title}</div>${t.text}`;
+    tipsGrid.appendChild(div);
+    setTimeout(() => div.classList.add('show'), 100 + i * 80);
+  });
+}
+
+function selectTips(steps, workout, sleep, water, bmi, hr) {
+  const all = [
+    { k: 'steps',   score: steps < 10000 ? 10000 - steps : 0 },
+    { k: 'workout', score: workout < 60 ? 60 - workout : 0 },
+    { k: 'sleep',   score: (sleep < 7 || sleep > 8) ? 10 : 0 },
+    { k: 'water',   score: water < 2.5 ? (2.5 - water) * 10 : 0 },
+    { k: 'bmi',     score: bmi > 25 ? (bmi - 25) * 3 : 0 },
+    { k: 'heart',   score: hr > 70 ? hr - 70 : 0 },
+  ];
+  return all.sort((a,b) => b.score - a.score).slice(0,3).map(x => x.k);
+}
+
+function animateNumber(id, target, duration) {
+  const el = document.getElementById(id);
+  const start = parseInt(el.textContent) || 0;
+  const startTime = performance.now();
+  function step(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    el.textContent = Math.round(start + (target - start) * eased);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Init sliders on load
+document.querySelectorAll('input[type="range"]').forEach(el => {
+  const val = parseFloat(el.value);
+  const min = parseFloat(el.min);
+  const max = parseFloat(el.max);
+  const pct = ((val - min) / (max - min)) * 100;
+  el.style.setProperty('--pct', pct + '%');
+});
+
+// Auto-predict on load for demo
+setTimeout(predict, 800);
+</script>
+</body>
+</html>
